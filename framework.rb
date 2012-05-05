@@ -30,10 +30,12 @@ class Context
 
   def activate
     @count += 1
+    self
   end
 
   def deactivate
     @count -= 1 unless @count == 0
+    self
   end
 
   def active?
@@ -44,20 +46,34 @@ class Context
     if args.size == 0
       self.manager.directory[self]
     else
-      self.manager.directory[self] = args[0]
+      if args[0].nil?
+        self.manager.directory.delete(self)
+      else
+        self.manager.directory[self] = args[0]
+      end
     end
   end
 
   def manager
     if @manager.nil?
-      if self == self.class.default
+      if self == Context.default
 	@manager = ContextManager.new
-	@name = "default"
+	self.name("default")
       else
-        @manager = self.class.default.manager
+        @manager = Context.default.manager
       end
     end
     @manager
+  end
+
+  def discard
+    @manager.discard_context(self)
+    Context.default(nil) if self == Context.default
+  end
+
+  def to_s
+    s = self.name.nil? ? "anonymous" : "#{ self.name }"
+    s + " context"
   end
 
 end
@@ -72,10 +88,10 @@ class ContextManager
     @directory = Hash.new
   end
 
-end
+  def discard_context(context)
+    raise Exception if context.manager != self
+    raise Exception if context.active?
+    @directory.delete(self)
+  end
 
-c = Context.named("test")
-puts c.name
-d = Context.default
-puts Context.default.name
-puts d.name
+end

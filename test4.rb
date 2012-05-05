@@ -1,9 +1,9 @@
 #!/usr/local/bin/ruby
 
 require 'test/unit'
-require 'framework'
+require 'cop'
 
-class Tests < Test::Unit::TestCase
+class Test4 < Test::Unit::TestCase
 
   def setup
     @context = Context.new

@@ -67,7 +67,7 @@ class Context
   end
 
   def discard
-    self.manager.discard_context(self)
+    @manager.discard_context(self)
     Context.default(nil) if self == Context.default
   end
 

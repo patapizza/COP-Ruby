@@ -1,7 +1,7 @@
-#!/usr/local/bin/ruby
+#!/usr/bin/env ruby
 
 require 'test/unit'
-require 'cop'
+require "/home/lasher/prog/github/COP-Ruby/cop"
 
 class Test4 < Test::Unit::TestCase
 
@@ -58,7 +58,7 @@ class Test4 < Test::Unit::TestCase
   end
 
   def test_default_context
-    assert(Context.singleton_methods.include? "default")
+    assert(Context.singleton_methods.include? :default)
     assert(!Context.default.nil?)
     assert(Context.default.is_a? Context)
     assert(Context.default.active?)

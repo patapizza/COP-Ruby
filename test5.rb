@@ -1,8 +1,8 @@
-#!/usr/local/bin/ruby
+#!/usr/bin/env ruby
 
 require 'test/unit'
-require 'cop'
-require 'phone'
+require "/home/lasher/prog/github/COP-Ruby/cop"
+require '/home/lasher/prog/github/COP-Ruby/phone'
 
 class Test5 < Test::Unit::TestCase
 
@@ -10,12 +10,12 @@ class Test5 < Test::Unit::TestCase
     self unless Context.public_method_defined? "adapt_class"
     Context.default.deactivate
     Context.default.discard
-    receive_method = Phone.method(:receive).to_proc
-    advertise_method = Phone.method(:advertise).to_proc
+    receive_method = Phone.allocate.method(:receive).to_proc
+    advertise_method = Phone.allocate.method(:advertise).to_proc
     quiet = Context.named("quiet")
-    quiet.adapt_class(Phone, :advertise, DiscretionPhoneExtension.method(:advertise_quietly).to_proc)
+    quiet.adapt_class(Phone, :advertise, DiscretionPhoneExtension.allocate.method(:advertise_quietly).to_proc)
     off_hook = Context.named("off hook")
-    off_hook.adapt_class(Phone, :advertise, MulticallPhoneExtension.method(:advertise_waiting_call).to_proc)
+    off_hook.adapt_class(Phone, :advertise, MulticallPhoneExtension.allocate.method(:advertise_waiting_call).to_proc)
   end
 
   def teardown
@@ -25,10 +25,10 @@ class Test5 < Test::Unit::TestCase
     off_hook.discard
     Context.default.deactivate
     Context.default.discard
-    Phone.class.send(:define_method, :receive) do
+    Phone.send(:define_method, :receive) do
       receive_method
     end
-    Phone.class.send(:define_method, :advertise) do
+    Phone.send(:define_method, :advertise) do
       advertise_method
     end
     Phone.remove_method(:phony_advertise)

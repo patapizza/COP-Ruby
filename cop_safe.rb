@@ -69,7 +69,7 @@ class Context
   end
 
   def to_s
-    (self.name.nil? ? "anonymous" : "#{self.name}") + " context"
+    self.name.nil? ? "anonymous" : "#{self.name}"
   end
 
   def adapt_class(a_class, a_selector, &a_method)

@@ -1,6 +1,8 @@
 #!/usr/local/bin/ruby
 
-class Context5 < Context
+require "/home/lasher/prog/github/COP-Ruby/lab4"
+
+class Context5 < Context4
 
   attr_accessor :adaptations
 
@@ -26,39 +28,31 @@ class Context5 < Context
   end
 
   def adapt_class(a_class, a_selector, a_method)
-    do |method default_adaptation context_adaptation|
-      method = a_class.allocate.method(a_selector)
-      raise Exception, "Cannot adapt inexistent method #{a_selector.to_s} in #{a_method.to_s}" if method.nil?
-      default_adaptation = ContextAdaptation.in_context(Context.default, a_class, a_selector, a_method)
-      Context.default.add_adaptation(default_adaptation, { :preserve })
-      context_adaptation = ContextAdaptation.in_context(self, a_class], a_selector, a_method)
-      self.add_adaptation(context_adaptation)
-    end
+    method = a_class.allocate.method(a_selector)
+    raise Exception, "Cannot adapt inexistent method #{a_selector.to_s} in #{a_method.to_s}" if method.nil?
+    default_adaptation = ContextAdaptation.in_context(Context.default, a_class, a_selector, a_method)
+    Context.default.add_adaptation(default_adaptation) { :preserve }
+    context_adaptation = ContextAdaptation.in_context(self, a_class, a_selector, a_method)
+    self.add_adaptation(context_adaptation)
   end
 
-  def add_adaptation(*args)
+  def add_adaptation(&args)
     raise Exception, "add_adaptation takes 1 or 2 arguments" unless args.size == 1 || args.size == 2
-    if args.size == 1
-      self.add_adaptation(args[0], { raise Exception, "an adaptation of #{args[0].adapted_selector.to_s} in #{args[0].adapted_class.to_s} already exists for #{self.to_s}" })
+    self.add_adaptation(args[0]) { raise Exception, "an adaptation of #{args[0].adapted_selector.to_s} in #{args[0].adapted_class.to_s} already exists for #{self.to_s}" } if args.size == 1
+    existing_adaptation = @adaptations.index do |adaptation|
+    adaptation.same_target?(args[0])
+    end
+    if existing_adaptation.nil?
+      self.add_inexistent_adaptation(args[0])
+      return self
+    end
+    existing_adaptation = @adaptations[existing_adaptation]
+    action = yield
+    if action == :overwrite
+      self.remove_existing_adaptation(existing_adaptation)
+      self.add_inexistent_adaptation(args[0])
     else
-      do |existing_adaptation action|
-        existing_adaptation = @adaptations.index do |adaptation|
-	  adaptation.same_target?(args[0])
-	end
-	if existing_adaptation.nil?
-	  self.add_inexistent_adaptation(args[0])
-	  return self
-	else
-	  existing_adaptation = @adaptations[existing_adaptation]
-	end
-	action = yield
-	if action == :overwrite
-	  self.remove_existing_adaptation(existing_adaptation)
-	  self.add_inexistent_adaptation(args[0])
-	else
-	  raise Exception, "Unknown overriding action #{action.to_s}" unless action == :overwrite
-	end
-      end
+      raise Exception, "Unknown overriding action #{action.to_s}" unless action == :preserve
     end
   end
 
@@ -93,11 +87,9 @@ class Context5 < Context
   end
 
   def roll_back_adaptations
-    do |deployed|
-      deployed = self.manager.active_adaptations.select { |adaptation| adaptation.context == self }
-      deployed.each do |adaptation|
-        self.manager.deactivate_adaptation(adaptation)
-      end
+    deployed = self.manager.active_adaptations.select { |adaptation| adaptation.context == self }
+    deployed.each do |adaptation|
+      self.manager.deactivate_adaptation(adaptation)
     end
   end
 
@@ -109,14 +101,12 @@ class ContextAdaptation
 
   def self.in_context(*args)
     raise Exception, "in_context takes 4 arguments" unless args.size == 4
-    do |adaptation|
-      adaptation = self.new
-      adaptation.context=(args[0])
-      adaptation.adapted_class=(args[1])
-      adaptation.adapted_selector=(args[2])
-      adaptation.adapted_implementation=(args[3])
-      adaptation
-    end
+    adaptation = self.new
+    adaptation.context=(args[0])
+    adaptation.adapted_class=(args[1])
+    adaptation.adapted_selector=(args[2])
+    adaptation.adapted_implementation=(args[3])
+    adaptation
   end
 
   def ==(other)
@@ -131,6 +121,7 @@ class ContextAdaptation
   end
 
   def deploy
+    # wrong!
     @adapted_class = Hash.new if @adapted_class.nil?
     @adapted_class[@adapted_selector] = @adapted_implementation
   end
@@ -145,7 +136,7 @@ class ContextAdaptation
 
 end
 
-class ContextManager5 < ContextManager
+class ContextManager5 < ContextManager4
   
   def initialize
     super.initialize
@@ -153,25 +144,26 @@ class ContextManager5 < ContextManager
   end
 
   def activate_adaptation(context_adaptation)
-    do |index|
-      index = @active_adaptations.index do |adaptation|
-        adaptation.same_target(context_adaptation) && adaptation.context != Context.default
-      end
-      raise Exception, "Conflicting adaptation for #{context_adaptation.adapted_class.to_s} >> #{context_adaptation.adapted_selector.to_s}" if index.nil?
+    index = @active_adaptations.index do |adaptation|
+      adaptation.same_target?(context_adaptation) && adaptation.context != Context.default
     end
+    raise Exception, "Conflicting adaptation for #{context_adaptation.adapted_class.to_s} >> #{context_adaptation.adapted_selector.to_s}" if index.nil?
     @active_adaptations.push(context_adaptation)
     context_adaptation.deploy
   end
 
   def deactivate_adaptation(context_adaptation)
-    do |default|
-      raise Exception, "Attempt to deactivate unmanaged adaptation" if @active_adaptations.delete(context_adaptation).nil?
-      default = Context.default.adaptations.index do |adaptation|
-        adaptation.adapts_class(context_adaptation.adapted_class, context_adaptation.adapted_selector)
-      end
-      raise Exception, "Could not find default behaviour for removed adaptation" if default.nil?
-      Context.default.adaptations[default].deploy
+    raise Exception, "Attempt to deactivate unmanaged adaptation" if @active_adaptations.delete(context_adaptation).nil?
+    default = Context.default.adaptations.index do |adaptation|
+      adaptation.adapts_class?(context_adaptation.adapted_class, context_adaptation.adapted_selector)
     end
+    raise Exception, "Could not find default behaviour for removed adaptation" if default.nil?
+    Context.default.adaptations[default].deploy
   end
 
+end
+
+class Context < Context5
+end
+class ContextManager < ContextManager5
 end

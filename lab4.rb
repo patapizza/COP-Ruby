@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 
-class Context
+class Context4
 
   @@default = nil
 
@@ -78,7 +78,7 @@ class Context
 
 end
 
-class ContextManager
+class ContextManager4
   
   @@default = nil
 

@@ -64,8 +64,12 @@ class PhoneCall
   
   attr_accessor :from
 
-  def to_s(stream)
-    "#{ stream } from #{ @from }"
+  def initialize(from)
+    @from = from
+  end
+
+  def to_s
+    "from #{ @from }"
   end
 
 end

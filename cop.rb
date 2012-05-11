@@ -3,6 +3,11 @@
 class Context
 
   @@default = nil
+  @@stack = Array.new
+
+  class << self
+    attr_writer :stack
+  end
 
   attr_writer :manager
   attr_accessor :adaptations
@@ -21,10 +26,29 @@ class Context
     @@default
   end
 
+  def self.stack
+    @@stack
+  end
+
   def self.named(name)
     c = self.new
     c.name= name
     c
+  end
+
+  def self.proceed
+    ca = @@stack.last
+    raise Exception, "proceed should only be called from adaptated methods" if ca.nil?
+    index = self.default.adaptations.index do |adaptation|
+      adaptation.adapts_class? ca.adapted_class, ca.adapted_selector
+    end
+    raise Exception, "no adaptation found" if index.nil?
+    meth = @@default.adaptations[index].adapted_implementation
+    if meth.parameters.size == 0
+      ca.adapted_class.instance_eval("meth.bind(self.new).call")
+    else
+      ca.adapted_class.instance_eval("meth.bind(self.new).call(meth.parameters)")
+    end
   end
 
   def activate
@@ -62,8 +86,7 @@ class Context
   def discard
     self.manager.discard_context(self)
     Context.default(nil) if self == Context.default
-    # why clone? ; also works without
-    @adaptations.clone.each do |adaptation|
+    @adaptations.each do |adaptation|
       self.remove_existing_adaptation(adaptation)
     end
   end
@@ -72,10 +95,9 @@ class Context
     (self.name.nil? ? "anonymous" : "#{self.name}") + " context"
   end
 
-  def adapt_class(a_class, a_selector, &a_method)
+  def adapt_class(a_class, a_selector, a_method)
     begin
-      # is it ok?
-      method = a_class.new.method(a_selector).to_proc
+      method = a_class.instance_method(a_selector)
       rescue NameError
         raise Exception, "can't adapt inexistent method #{a_selector.to_s} in #{a_method.to_s}"
     end
@@ -95,7 +117,7 @@ class Context
     end
     existing = @adaptations[existing]
     action = yield
-    if action == :override
+    if action == :overwritee
       self.remove_existing_adaptation(existing)
       self.add_inexistent_adaptation(context_adaptation)
     else
@@ -113,6 +135,7 @@ class Context
     raise Exception, "can't remove foreign adaptation" unless self == context_adaptation.context
     self.manager.deactivate_adaptation(context_adaptation) if self.active?
     raise Exception, "can't remove adaptation" if @adaptations.delete(context_adaptation).nil?
+    @@stack.pop
   end
 
   def activate_adaptations
@@ -195,7 +218,12 @@ class ContextAdaptation
 
   def deploy
     x = @adapted_implementation
-    @adapted_class.send(:define_method, @adapted_selector) { |args = x.parameters | x.call(args) }
+    y = self
+    if @context != Context.default
+       @adapted_class.send(:define_method, @adapted_selector, lambda { |args = x.parameters, ca = y| Context.stack= Context.stack.push(ca); r = x.call(args); Context.stack.pop(); r })
+    else
+      @adapted_class.send(:define_method, @adapted_selector, @adapted_implementation)
+    end
   end
 
   def adapts_class?(a_class, a_symbol)

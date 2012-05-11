@@ -1,8 +1,8 @@
 #!/usr/bin/env ruby
 
 require 'test/unit'
-require "/home/lasher/prog/github/COP-Ruby/cop"
-require "/home/lasher/prog/github/COP-Ruby/phone"
+require "./cop"
+require "./phone"
 
 class Test4 < Test::Unit::TestCase
 
@@ -97,7 +97,7 @@ class Test4 < Test::Unit::TestCase
     assert(Context.public_method_defined? "adapt_class")
     @context = Context.named("silent")
     assert(!@context.active?)
-    @context.adapt_class(Phone, :advertise) { |x| "vibrator" }
+    @context.adapt_class(Phone, :advertise, lambda { |x| "vibrator" })
     assert(!@context.active?)
     phone = Phone.new
     call = PhoneCall.new("Alice")
@@ -109,6 +109,25 @@ class Test4 < Test::Unit::TestCase
     assert_nothing_raised Exception do
       @context.discard
     end
+    assert_equal(phone.advertise(call), "ringtone")
+  end
+
+  def test_composition
+    @context = Context.named("screening")
+    assert_raise Exception do
+      Context.proceed
+    end
+    @context.adapt_class(Phone, :suspend, lambda { |*args| self })
+    @context.adapt_class(Phone, :advertise, lambda { |*args| "#{Context.proceed} with screening" })
+    phone = Phone.new
+    call = PhoneCall.new("Alice")
+    phone.receive(call)
+    assert_equal(phone.advertise(call), "ringtone")
+    @context.activate
+    assert_equal(phone.advertise(call), "ringtone with screening")
+    phone.suspend
+    @context.deactivate
+    assert_equal(phone.advertise(call), "ringtone")
   end
 
 end

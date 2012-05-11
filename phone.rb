@@ -96,3 +96,11 @@ class MulticallPhoneExtension < PhoneExtension
   end
 
 end
+
+class ScreeningPhoneExtension < PhoneExtension
+
+  def advertise_with_screening(call)
+  	Context.proceed + " with screening"
+  end
+
+end

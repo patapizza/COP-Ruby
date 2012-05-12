@@ -130,4 +130,13 @@ class Test4 < Test::Unit::TestCase
     assert_equal(phone.advertise(call), "ringtone")
   end
 
+  def test_age_resolution_policy
+    assert(Context.public_method_defined? "activation_age")
+    Context.default.manager.resolution_policy= Context.default.manager.age_resolution_policy
+    assert(Context.default.active?)
+    assert(!@context.active?)
+    @context.activate
+    assert(@context.activation_age < Context.default.activation_age)
+  end
+
 end

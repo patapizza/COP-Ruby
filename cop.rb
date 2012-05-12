@@ -51,7 +51,12 @@ class Context
     end
   end
 
+  def activation_age
+    self.manager.context_activation_age(self)
+  end
+
   def activate
+    self.manager.signal_activation_request(self)
     self.activate_adaptations if @count == 0
     @count += 1
     self
@@ -175,12 +180,15 @@ class ContextManager
   def initialize
     @directory = Hash.new
     @adaptations = Array.new
+    @total_activations = 0
+    @activation_stamps = Hash.new
   end
 
   def discard_context(context)
     raise Exception "can't discard outside context manager" if context.manager != self
     raise Exception, "can't discard an active context" if context.active?
     @directory.delete(self)
+    @activation_stamps.delete(context)
   end
 
   def activate_adaptation(context_adaptation)
@@ -199,6 +207,31 @@ class ContextManager
     end
     raise Exception, "can't find default behavior for removed adaptation" if default.nil?
     Context.default.adaptations[default].deploy
+  end
+
+  def adaptation_chain(a_class, a_symbol)
+    a = @adaptations.select do |adaptation|
+      adaptation.adapts_class? a_class, a_symbol
+    end
+    raise Exception, "no adaptation found for #{a_class.to_s}::#{a_symbol.to_s}" if a.empty?
+    a.sort { @policy.call(@policy.args) }
+  end
+
+  def resolution_policy=(policy)
+    @policy = policy
+  end
+
+  def age_resolution_policy
+    Proc.new { |a1, a2| self.context_activation_age(a1) < self.context_activation_age(a2) }
+  end
+
+  def context_activation_age(context)
+    @total_activations - @activation_stamps[context]
+  end
+
+  def signal_activation_request(context)
+    @total_activations += 1
+    @activation_stamps[context] = @total_activations
   end
 
 end

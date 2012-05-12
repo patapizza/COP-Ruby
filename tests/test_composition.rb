@@ -1,8 +1,11 @@
 #!/usr/bin/env ruby
 
-require "./cop"
-require "./phone"
-require "./test_adaptation"
+$: << ".."
+
+require "cop/context"
+require "phone/phone"
+require "phone/phone_call"
+require "tests/test_adaptation"
 
 class COPCompositionTest < COPAdaptationTest
 
@@ -26,7 +29,7 @@ class COPCompositionTest < COPAdaptationTest
 
   def test_nested_activation
     phone = Phone.new
-    call = PhoneCall.new("Alice")
+    call = PhoneCall.from("Alice")
     phone.receive(call)
     assert_equal(phone.advertise(call), "ringtone")
     @screening_context.activate

@@ -1,7 +1,9 @@
 #!/usr/bin/env ruby
 
+$: << ".."
+
 require "test/unit"
-require "./cop"
+require "cop/context"
 
 class COPInfrastructureTest < Test::Unit::TestCase
 

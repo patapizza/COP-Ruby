@@ -1,8 +1,11 @@
 #!/usr/bin/env ruby
 
+$: << ".."
+
 require "test/unit"
-require "./cop"
-require "./phone"
+require "cop/context"
+require "phone/phone"
+require "phone/phone_call"
 
 class COPAdaptationTest < Test::Unit::TestCase
 

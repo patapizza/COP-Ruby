@@ -1,8 +1,11 @@
 #!/usr/bin/env ruby
 
-require "./cop"
-require "./phone"
-require "./test_composition"
+$: << ".."
+
+require "cop/context"
+require "phone/phone"
+require "phone/phone_call"
+require "tests/test_composition"
 
 class COPAgeResolutionTest < COPCompositionTest
 
@@ -46,7 +49,7 @@ class COPAgeResolutionTest < COPCompositionTest
 
   def test_interleaved_activation
     phone = Phone.new
-    call = PhoneCall.new("Alice")
+    call = PhoneCall.from("Alice")
     phone.receive(call)
     assert_equal(phone.advertise(call), "ringtone")
     @quiet_context.activate
@@ -61,7 +64,7 @@ class COPAgeResolutionTest < COPCompositionTest
 
   def test_nested_activation
     phone = Phone.new
-    call = PhoneCall.new("Alice")
+    call = PhoneCall.from("Alice")
     phone.receive(call)
     assert_equal(phone.advertise(call), "ringtone")
     @quiet_context.activate

@@ -38,14 +38,14 @@ class Context
 
   def self.proceed
     ca = @@stack.last
-    raise Exception, "proceed should only be called from adaptated methods" if ca.nil?
-    index = self.default.adaptations.index do |adaptation|
+    raise Exception, "proceed should only be called from adapted methods" if ca.nil?
+    adaptations = self.default.manager.adaptations.select do |adaptation|
       adaptation.adapts_class? ca.adapted_class, ca.adapted_selector
     end
-    raise Exception, "no adaptation found" if index.nil?
-    meth = @@default.adaptations[index].adapted_implementation
-    if meth.parameters.size == 0
-      ca.adapted_class.instance_eval("meth.bind(self.new).call")
+    raise Exception, "no adaptation found" if adaptations.empty?
+    meth = @@default.manager.adaptation_chain(ca.adapted_class, ca.adapted_selector)[1].adapted_implementation
+    if meth.is_a? Proc
+      meth.call(meth.parameters)
     else
       ca.adapted_class.instance_eval("meth.bind(self.new).call(meth.parameters)")
     end
@@ -122,7 +122,7 @@ class Context
     end
     existing = @adaptations[existing]
     action = yield
-    if action == :overwritee
+    if action == :overwrite
       self.remove_existing_adaptation(existing)
       self.add_inexistent_adaptation(context_adaptation)
     else
@@ -140,7 +140,6 @@ class Context
     raise Exception, "can't remove foreign adaptation" unless self == context_adaptation.context
     self.manager.deactivate_adaptation(context_adaptation) if self.active?
     raise Exception, "can't remove adaptation" if @adaptations.delete(context_adaptation).nil?
-    @@stack.pop
   end
 
   def activate_adaptations
@@ -182,6 +181,7 @@ class ContextManager
     @adaptations = Array.new
     @total_activations = 0
     @activation_stamps = Hash.new
+    self.resolution_policy= self.age_resolution_policy
   end
 
   def discard_context(context)
@@ -192,41 +192,44 @@ class ContextManager
   end
 
   def activate_adaptation(context_adaptation)
-    index = @adaptations.index do |adaptation|
-      adaptation.context != Context.default and adaptation.same_target? context_adaptation
-    end
-    raise Exception, "conflicting adaptation for #{context_adaptation.adapted_class.to_s}.#{context_adaptation.adapted_selector.to_s}" unless index.nil?
     @adaptations.push(context_adaptation)
-    context_adaptation.deploy
+    self.deploy_best_adaptation_for(context_adaptation.adapted_class, context_adaptation.adapted_selector)
   end
 
   def deactivate_adaptation(context_adaptation)
     raise Exception, "can't deactivate unmanaged adaptation" if @adaptations.delete(context_adaptation).nil?
-    default = Context.default.adaptations.index do |adaptation|
-      adaptation.adapts_class? context_adaptation.adapted_class, context_adaptation.adapted_selector
-    end
-    raise Exception, "can't find default behavior for removed adaptation" if default.nil?
-    Context.default.adaptations[default].deploy
+    self.deploy_best_adaptation_for(context_adaptation.adapted_class, context_adaptation.adapted_selector) unless @adaptations.empty?
+  end
+
+  def deploy_best_adaptation_for(a_class, a_symbol)
+    self.adaptation_chain(a_class, a_symbol).first.deploy
   end
 
   def adaptation_chain(a_class, a_symbol)
     a = @adaptations.select do |adaptation|
       adaptation.adapts_class? a_class, a_symbol
     end
-    raise Exception, "no adaptation found for #{a_class.to_s}::#{a_symbol.to_s}" if a.empty?
-    a.sort { @policy.call(@policy.args) }
+    raise Exception, "no adaptation found for #{a_class.to_s}.#{a_symbol.to_s}" if a.empty?
+    a.sort do |a1, a2|
+      @resolution_policy.call(a1.context, a2.context)
+    end
   end
 
   def resolution_policy=(policy)
-    @policy = policy
+    @resolution_policy = policy
+    @adaptations.each do |adaptation|
+      self.deploy_best_adaptation_for(adaptation.adapted_class, adaptation.adapted_selector)
+    end
   end
 
   def age_resolution_policy
-    Proc.new { |a1, a2| self.context_activation_age(a1) < self.context_activation_age(a2) }
+    Proc.new { |a1, a2|
+      (self.context_activation_age(a1) < self.context_activation_age(a2)) ? -1 : 1
+    }
   end
 
   def context_activation_age(context)
-    @total_activations - @activation_stamps[context]
+    @total_activations - (@activation_stamps[context].nil? ? 0 : @activation_stamps[context])
   end
 
   def signal_activation_request(context)
@@ -253,7 +256,12 @@ class ContextAdaptation
     x = @adapted_implementation
     y = self
     if @context != Context.default
-       @adapted_class.send(:define_method, @adapted_selector, lambda { |args = x.parameters, ca = y| Context.stack= Context.stack.push(ca); r = x.call(args); Context.stack.pop(); r })
+      @adapted_class.send(:define_method, @adapted_selector, lambda do |args = x.parameters, ca = y|
+        Context.stack= Context.stack.push(ca)
+	r = x.call(args)
+	Context.stack.pop()
+	r
+      end)
     else
       @adapted_class.send(:define_method, @adapted_selector, @adapted_implementation)
     end
@@ -268,7 +276,7 @@ class ContextAdaptation
   end
 
   def to_s
-    "for #{@adapted_selector.to_s} of #{@adapted_class.to_s} using #{@adapted_implementation.nil? ? "no implementation" : @adapted_implementation.name.to_s} in #{@context.to_s}"
+    "for #{@adapted_selector.to_s} of #{@adapted_class.to_s} using #{@adapted_implementation.nil? ? "no implementation" : @adapted_implementation.to_s} in #{@context.to_s}"
   end
 
 end

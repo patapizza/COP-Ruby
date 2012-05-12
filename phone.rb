@@ -100,7 +100,7 @@ end
 class ScreeningPhoneExtension < PhoneExtension
 
   def advertise_with_screening(call)
-  	Context.proceed + " with screening"
+  	"#{Context.proceed} with screening"
   end
 
 end

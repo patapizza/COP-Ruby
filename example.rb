@@ -33,7 +33,7 @@ house = House.new
 alice = Visitor.new("alice", "the imperial march")
 john = Visitor.new("john", "nutcracker theme")
 
-"""puts house.play_song
+puts house.play_song
 house.entering(alice)
 puts house.play_song
 house.entering(john)
@@ -41,7 +41,7 @@ puts house.play_song
 house.leaving(john)
 puts house.play_song
 house.leaving(alice)
-puts house.play_song"""
+puts house.play_song
 
 class HearingImpaired < Visitor
   def initialize(name)
@@ -51,8 +51,6 @@ class HearingImpaired < Visitor
   end
 end
 
-house = House.new
-alice = Visitor.new("alice", "the imperial march")
 stan = HearingImpaired.new("stan")
 
 puts house.play_song

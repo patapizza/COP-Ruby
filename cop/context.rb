@@ -52,7 +52,7 @@ class Context
     if meth.is_a? Proc
       meth.call(meth.parameters)
     else
-      ca.adapted_class.instance_eval("meth.bind(self.new).call(meth.parameters)")
+      meth.bind(ca.adapted_class.class_eval("self.new")).call(meth.parameters)
     end
   end
 
